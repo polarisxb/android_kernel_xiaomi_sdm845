@@ -576,7 +576,7 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 EXPORT_SYMBOL(vfs_write);
 
 #if defined(CONFIG_KSU_MANUAL_HOOK) && !defined(CONFIG_KSU_SUSFS)
-extern void ksu_handle_sys_read(unsigned int fd);
+extern int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr, size_t *count_ptr);
 #endif
 
 
@@ -597,7 +597,7 @@ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
 	ssize_t ret = -EBADF;
 
 #if defined(CONFIG_KSU_MANUAL_HOOK) && !defined(CONFIG_KSU_SUSFS)
-	ksu_handle_sys_read(fd);
+	ksu_handle_sys_read(fd, &buf, &count);
 #endif
 
 	if (f.file) {
