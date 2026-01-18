@@ -467,9 +467,8 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 	ssize_t ret;
 
 #if defined(CONFIG_KSU_MANUAL_HOOK) && !defined(CONFIG_KSU_SUSFS)
-	// DISABLED FOR TESTING: vfs_read hook may cause bootloop
-	// if (unlikely(ksu_vfs_read_hook))
-	// 	ksu_handle_vfs_read(&file, &buf, &count, &pos);
+	if (unlikely(ksu_vfs_read_hook))
+		ksu_handle_vfs_read(&file, &buf, &count, &pos);
 #endif
 
 
