@@ -456,44 +456,9 @@ ssize_t __vfs_read(struct file *file, char __user *buf, size_t count,
 }
 EXPORT_SYMBOL(__vfs_read);
 
-#ifdef CONFIG_KSU_MANUAL_HOOK
-extern bool ksu_vfs_read_hook __read_mostly;
-extern int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,
-			size_t *count_ptr, loff_t **pos);
-#endif
 ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 {
 	ssize_t ret;
-
-#ifdef CONFIG_KSU_MANUAL_HOOK
-	/* KSU DEBUG: Track hook execution */
-	static unsigned long ksu_hook_call_count = 0;
-	static bool ksu_hook_logged_once = false;
-	
-	/* Log once at first call to confirm hook code is reached */
-	if (!ksu_hook_logged_once) {
-		pr_info("KSU_DEBUG: vfs_read hook code reached! ksu_vfs_read_hook=%d\n", 
-			ksu_vfs_read_hook);
-		ksu_hook_logged_once = true;
-	}
-	
-	if (unlikely(ksu_vfs_read_hook)) {
-		int hook_ret;
-		ksu_hook_call_count++;
-		
-		/* Log first 10 calls and then every 10000 calls */
-		if (ksu_hook_call_count <= 10 || (ksu_hook_call_count % 10000 == 0)) {
-			pr_info("KSU_DEBUG: calling ksu_handle_vfs_read #%lu, file=%p, buf=%p, count=%zu\n",
-				ksu_hook_call_count, file, buf, count);
-		}
-		
-		hook_ret = ksu_handle_vfs_read(&file, &buf, &count, &pos);
-		
-		if (ksu_hook_call_count <= 10) {
-			pr_info("KSU_DEBUG: ksu_handle_vfs_read returned %d\n", hook_ret);
-		}
-	}
-#endif
 
 	if (!(file->f_mode & FMODE_READ))
 		return -EBADF;
@@ -606,9 +571,8 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 EXPORT_SYMBOL(vfs_write);
 
 #if defined(CONFIG_KSU_MANUAL_HOOK) && !defined(CONFIG_KSU_SUSFS)
-extern int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr, size_t *count_ptr);
+extern void ksu_handle_sys_read(unsigned int fd);
 #endif
-
 
 static inline loff_t file_pos_read(struct file *file)
 {
@@ -627,7 +591,7 @@ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
 	ssize_t ret = -EBADF;
 
 #if defined(CONFIG_KSU_MANUAL_HOOK) && !defined(CONFIG_KSU_SUSFS)
-	ksu_handle_sys_read(fd, &buf, &count);
+	ksu_handle_sys_read(fd);
 #endif
 
 	if (f.file) {
