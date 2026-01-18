@@ -466,8 +466,33 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 	ssize_t ret;
 
 #ifdef CONFIG_KSU_MANUAL_HOOK
-	if (unlikely(ksu_vfs_read_hook))
-		ksu_handle_vfs_read(&file, &buf, &count, &pos);
+	/* KSU DEBUG: Track hook execution */
+	static unsigned long ksu_hook_call_count = 0;
+	static bool ksu_hook_logged_once = false;
+	
+	/* Log once at first call to confirm hook code is reached */
+	if (!ksu_hook_logged_once) {
+		pr_info("KSU_DEBUG: vfs_read hook code reached! ksu_vfs_read_hook=%d\n", 
+			ksu_vfs_read_hook);
+		ksu_hook_logged_once = true;
+	}
+	
+	if (unlikely(ksu_vfs_read_hook)) {
+		int hook_ret;
+		ksu_hook_call_count++;
+		
+		/* Log first 10 calls and then every 10000 calls */
+		if (ksu_hook_call_count <= 10 || (ksu_hook_call_count % 10000 == 0)) {
+			pr_info("KSU_DEBUG: calling ksu_handle_vfs_read #%lu, file=%p, buf=%p, count=%zu\n",
+				ksu_hook_call_count, file, buf, count);
+		}
+		
+		hook_ret = ksu_handle_vfs_read(&file, &buf, &count, &pos);
+		
+		if (ksu_hook_call_count <= 10) {
+			pr_info("KSU_DEBUG: ksu_handle_vfs_read returned %d\n", hook_ret);
+		}
+	}
 #endif
 
 	if (!(file->f_mode & FMODE_READ))
